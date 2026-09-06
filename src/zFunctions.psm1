@@ -8475,7 +8475,7 @@ function OptionalTweaks {
       $openWindows = Get-Process | Where-Object { $_.MainWindowTitle -like 'AccentColorizer.exe*' } 
       if ($openWindows) {
         Write-Status -Message 'Visual C++ Packages Not Installed...' -Type Error
-        Write-Status -Message 'Please Install Neccessary Packages Under the Install Section of Zoicware...' -Type Output
+        Write-Status -Message 'Please Install Necessary Packages Under the Install Section of Zoicware...' -Type Output
       }
       else {
         #needs to be applied on startup
