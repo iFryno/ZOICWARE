@@ -187,3 +187,7 @@
 - Enable last open window in taskbar
 - Hide removable drives from navigation pane
 - Minimize keyboard repeat delay
+- Disable pinned in Start
+- Disable recent in Start
+- Disable show recent and suggested files in Start
+- Small Start menu size
