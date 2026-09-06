@@ -2252,6 +2252,18 @@ Windows Registry Editor Version 5.00
 
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization]
 "DODownloadMode"=-
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Start]
+"ShowPinnedSection"=-
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Start]
+"ShowRecentSection"=-
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Start]
+"ShowSuggestedFiles"=-
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Start]
+"StartMenuSize"=-
 '@
 
         Add-Content -Path $file.FullName -Value $regContent -Force
