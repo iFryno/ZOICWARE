@@ -200,6 +200,7 @@ Windows Registry Editor Version 5.00
 
 [HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\1387020943]
 "EnabledState"=dword:00000001
+
 [HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\FeatureManagement\Overrides\8\1694661260]
 "EnabledState"=dword:00000001
 
@@ -461,6 +462,7 @@ Windows Registry Editor Version 5.00
 ; Privacy deny location
 [HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location]
 "Value"="Deny"
+
 [HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\CPSS\Store\UserLocationOverridePrivacySetting]
 "Value"=dword:00000000
 
@@ -589,6 +591,7 @@ Windows Registry Editor Version 5.00
 ; Disable background apps global
 [HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Search]
 "BackgroundAppGlobalToggle"=dword:00000000
+
 [HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications]
 "GlobalUserDisabled"=dword:00000001
 
@@ -1204,3 +1207,19 @@ Windows Registry Editor Version 5.00
 ; Minimize keyboard repeat delay
 [HKEY_CURRENT_USER\Control Panel\Keyboard]
 "KeyboardDelay"="0"
+
+; Disable pinned in Start
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Start]
+"ShowPinnedSection"=dword:00000000
+
+; Disable recent in Start
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Start]
+"ShowRecentSection"=dword:00000000
+
+; Disable show recent and suggested files in Start
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Start]
+"ShowSuggestedFiles"=dword:00000000
+
+; Small Start menu size
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Start]
+"StartMenuSize"=dword:00000001
