@@ -9737,6 +9737,7 @@ foreach (`$key in `$keys) {
    <Triggers>
     <LogonTrigger>
       <Enabled>true</Enabled>
+      <Delay>PT5S</Delay>
     </LogonTrigger>
   </Triggers>
   <Principals>
@@ -10183,6 +10184,7 @@ Windows Registry Editor Version 5.00
 <Triggers>
 <LogonTrigger>
 <Enabled>true</Enabled>
+<Delay>PT5S</Delay>
 </LogonTrigger>
 </Triggers>
 <Principals>
