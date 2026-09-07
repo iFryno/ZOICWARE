@@ -138,8 +138,8 @@
 <img width="681" height="540" alt="3 Debloat Presets" src="https://github.com/user-attachments/assets/2a72742e-e4bf-4e37-95d2-6887261c3f9e" />
 
 - Debloat All
-- Keep Store, Xbox and Edge
-- Keep Store and Xbox
+- Keep Store, XBOX and Edge
+- Keep Store and XBOX
 - Keep Edge
 - Keep Store
 
@@ -249,7 +249,7 @@
 - **Disable PowerShell Logging** - By default, everything entered into the PowerShell console is saved to a file in your AppData directory; this will disable that "feature".
 - **Enable No GUI Boot** - Enables No GUI Boot in msconfig, disabling the boot logo, spinning logo and boot messages.
 - **Create Shortcut to Start Menu Locations** - Creates a shortcut in the Start Menu that lets you access both Start Menu shortcut folders directly, to customize the apps listed in the Start Menu.
-- **Disable Game Bar Popup** - When uninstalling Xbox apps, plugging in an Xbox controller triggers an annoying popup; this tweak disables that [Credit: @AveYo].
+- **Disable Game Bar Popup** - When uninstalling XBOX apps, plugging in an XBOX controller triggers an annoying popup; this tweak disables that [Credit: @AveYo].
 - **Enable Fast Shutdown/Restart** - Decreases the delay before services and apps are killed to shut down or restart, as well as auto-ending open foreground apps without asking.
 - **Use More Accurate Time Server for System Clock** - Sets the w32tm service to use https://www.pool.ntp.org/ as its time server instead of the default one.
 - **No Mouse Accel on Desktop** - Removes mouse acceleration on the desktop when using scaling above 100% [Credit: @MarkC].
