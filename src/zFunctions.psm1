@@ -8848,7 +8848,7 @@ explorer ""$env:APPDATA\Microsoft\Windows\Start Menu\Programs"";explorer ""$env:
       $file = New-Item "$env:ProgramData\SilentStartMenuDir.ps1" -Value $psScript -Force
 
       $WshShell = New-Object -comObject WScript.Shell
-      $Shortcut = $WshShell.CreateShortcut("$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Shortcuts.lnk")
+      $Shortcut = $WshShell.CreateShortcut("$env:ProgramData\Microsoft\Windows\Start Menu\Programs\zShortcuts.lnk")
       $Shortcut.TargetPath = 'conhost.exe'
       $Shortcut.Arguments = "--headless powershell.exe -ep bypass -f `"$($file.FullName)`""
       $Shortcut.IconLocation = '%SystemRoot%\System32\SHELL32.dll, -16769'
