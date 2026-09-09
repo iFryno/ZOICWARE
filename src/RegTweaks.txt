@@ -785,6 +785,7 @@ Windows Registry Editor Version 5.00
 "WinEnterLaunchEnabled"=dword:00000000
 "ScriptingEnabled"=dword:00000000
 "OnlineServicesEnabled"=dword:00000000
+"CheckForScriptsEnabled"=dword:00000000
 
 [HKEY_CURRENT_USER\Software\Microsoft\Narrator]
 "NarratorCursorHighlight"=dword:00000000
@@ -1224,10 +1225,6 @@ Windows Registry Editor Version 5.00
 
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Device Metadata]
 "PreventDeviceMetadataFromNetwork"=dword:00000001
-
-; Disable automatic download of Narrator extensions
-[HKEY_CURRENT_USER\Software\Microsoft\Narrator\NoRoam]
-"CheckForScriptsEnabled"=dword:00000000
 
 ; Disable auto read/scan in Ease of Access Center
 [HKEY_CURRENT_USER\Software\Microsoft\Ease of Access]
