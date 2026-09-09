@@ -173,8 +173,6 @@
 - Increase wallpaper quality
 - Disable automatic troubleshooting
 - Disable write with fingertip
-- Disable share window from taskbar
-- Disable desktop preview
 - Disable small taskbar buttons
 - Disable touch keyboard
 - Disable auto correction
