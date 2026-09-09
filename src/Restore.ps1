@@ -1921,6 +1921,7 @@ Windows Registry Editor Version 5.00
 "WinEnterLaunchEnabled"=-
 "ScriptingEnabled"=-
 "OnlineServicesEnabled"=-
+"CheckForScriptsEnabled"=-
 
 [HKEY_CURRENT_USER\Software\Microsoft\Ease of Access]
 "selfvoice"=-
@@ -2202,12 +2203,6 @@ Windows Registry Editor Version 5.00
 "EnableInkingWithTouch"=-
 
 [HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced]
-"TaskbarSn"=-
-
-[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced]
-"TaskbarSd"=-
-
-[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced]
 "IconSizePreference"=-
 
 [HKEY_CURRENT_USER\Software\Microsoft\TabletTip\1.7]
@@ -2257,6 +2252,35 @@ Windows Registry Editor Version 5.00
 "MouseSpeed"="1"
 "MouseThreshold1"="6"
 "MouseThreshold2"="10"
+
+[HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced]
+"SharingWizardOn"=-
+"ShowSyncProviderNotifications"=-
+
+[HKEY_CURRENT_USER\Control Panel\Accessibility\ToggleKeys]
+"Flags"="62"
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes]
+"ThemeChangesDesktopIcons"=dword:00000001
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Metadata]
+"PreventDeviceMetadataFromNetwork"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Device Metadata]
+"PreventDeviceMetadataFromNetwork"=-
+
+[HKEY_CURRENT_USER\Software\Microsoft\Ease of Access]
+"selfscan"=-
+"selfvoice"=-
+
+[HKEY_CURRENT_USER\Control Panel\Accessibility\SoundSentry]
+"WindowsEffect"="1"
+
+[HKEY_CURRENT_USER\Control Panel\Accessibility\SlateLaunch]
+"LaunchAT"=dword:00000001
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced]
+"TaskbarSn"=-
 '@
 
         Add-Content -Path $file.FullName -Value $regContent -Force

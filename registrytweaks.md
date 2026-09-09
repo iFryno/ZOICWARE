@@ -173,8 +173,6 @@
 - Increase wallpaper quality
 - Disable automatic troubleshooting
 - Disable write with fingertip
-- Disable share window from taskbar
-- Disable desktop preview
 - Disable small taskbar buttons
 - Disable touch keyboard
 - Disable auto correction
@@ -187,3 +185,12 @@
 - Enable last open window in taskbar
 - Hide removable drives from navigation pane
 - Minimize keyboard repeat delay
+- Disable show sync provider notifications
+- Disable use Sharing Wizard
+- Disable Toggle Keys shortcut
+- Disable allow themes to change desktop icons
+- Disable automatically download maufacturers apps for devices
+- Disable auto read/scan in Ease of Access Center
+- Disable visual warning for Sound Sentry
+- Disable accessibility tool shortcut
+- Disable share window from taskbar
