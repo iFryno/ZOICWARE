@@ -1921,6 +1921,7 @@ Windows Registry Editor Version 5.00
 "WinEnterLaunchEnabled"=-
 "ScriptingEnabled"=-
 "OnlineServicesEnabled"=-
+"CheckForScriptsEnabled"=-
 
 [HKEY_CURRENT_USER\Software\Microsoft\Ease of Access]
 "selfvoice"=-
@@ -2267,9 +2268,6 @@ Windows Registry Editor Version 5.00
 
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Device Metadata]
 "PreventDeviceMetadataFromNetwork"=-
-
-[HKEY_CURRENT_USER\Software\Microsoft\Narrator\NoRoam]
-"CheckForScriptsEnabled"=-
 
 [HKEY_CURRENT_USER\Software\Microsoft\Ease of Access]
 "selfscan"=-
