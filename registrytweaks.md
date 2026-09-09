@@ -190,7 +190,6 @@
 - Disable Toggle Keys shortcut
 - Disable allow themes to change desktop icons
 - Disable automatically download maufacturers apps for devices
-- Disable automatic download of Narrator extensions
 - Disable auto read/scan in Ease of Access Center
 - Disable visual warning for Sound Sentry
 - Disable accessibility tool shortcut
