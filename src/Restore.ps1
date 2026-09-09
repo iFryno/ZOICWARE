@@ -2278,6 +2278,9 @@ Windows Registry Editor Version 5.00
 
 [HKEY_CURRENT_USER\Control Panel\Accessibility\SlateLaunch]
 "LaunchAT"=dword:00000001
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced]
+"TaskbarSn"=-
 '@
 
         Add-Content -Path $file.FullName -Value $regContent -Force
