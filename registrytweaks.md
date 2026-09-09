@@ -193,3 +193,4 @@
 - Disable auto read/scan in Ease of Access Center
 - Disable visual warning for Sound Sentry
 - Disable accessibility tool shortcut
+- Disable share window from taskbar
