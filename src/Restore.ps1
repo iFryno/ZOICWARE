@@ -239,6 +239,13 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         }
         Write-Status -Message 'Enabling Updates...' -Type Output
         Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching' /v 'SearchOrderConfig' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' /v 'ExcludeWUDriversInQualityUpdate' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\UpdatePolicy\PolicyState' /v 'ExcludeWUDrivers' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Device Metadata' /v 'PreventDeviceMetadataFromNetwork' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Settings' /v 'DisableSendGenericDriverNotFoundToWER' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Settings' /v 'DisableSendRequestAdditionalSoftwareToWER' /f *>$null
         Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\UsoSvc' /v 'Start' /t REG_DWORD /d '2' /f
         Reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\DoSvc' /v 'Start' /t REG_DWORD /d '2' /f
         Start-Service UsoSvc -ErrorAction SilentlyContinue
@@ -2347,26 +2354,18 @@ Windows Registry Editor Version 5.00
         Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' -Name 'PauseQualityUpdatesStartTime' -Force
         Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' -Name 'PauseUpdatesStartTime' -Force
 
-        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching' /v 'SearchOrderConfig' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\UpdatePolicy\PolicyState' /v 'ExcludeWUDrivers' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' /v 'SearchOrderConfig' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' /v 'EnableFeaturedSoftware' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' /v 'IncludeRecommendedUpdates' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'AllowTemporaryEnterpriseFeatureControl' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Settings' /v 'DisableSendGenericDriverNotFoundToWER' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Settings' /v 'DisableSendRequestAdditionalSoftwareToWER' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'SetAllowOptionalContent' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'DeferFeatureUpdates' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'DeferFeatureUpdatesPeriodInDays' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'DeferQualityUpdates' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'DeferQualityUpdatesPeriodInDays' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'ExcludeUpdateClassifications' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'ExcludeWUDriversInQualityUpdate' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' /v 'ExcludeWUDriversInQualityUpdate' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Device Metadata' /v 'PreventDeviceMetadataFromNetwork' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' /v 'DontPromptForWindowsUpdate' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' /v 'DontSearchWindowsUpdate' /f *>$null
-        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' /v 'DriverUpdateWizardWuSearchEnabled' /f *>$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'SetAllowOptionalContent' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'DeferFeatureUpdates' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'DeferFeatureUpdatesPeriodInDays' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'DeferQualityUpdates' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'DeferQualityUpdatesPeriodInDays' /f >$null 
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'DeferQualityUpdatesPeriodInDays' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /v 'ExcludeUpdateClassifications' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings' /v 'ExcludeWUDriversInQualityUpdate' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Device Metadata' /v 'PreventDeviceMetadataFromNetwork' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' /v 'DontPromptForWindowsUpdate' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' /v 'DontSearchWindowsUpdate' /f >$null
+        Reg.exe delete 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DriverSearching' /v 'DriverUpdateWizardWuSearchEnabled' /f >$null
 
         Set-Service -Name UsoSvc -StartupType Automatic -ErrorAction SilentlyContinue
         Set-Service -Name WaaSMedicSvc -StartupType Manual -ErrorAction SilentlyContinue
