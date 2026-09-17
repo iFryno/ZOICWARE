@@ -513,9 +513,7 @@
 > Not all registry tweaks can/should be reverted.
 
 ### Unpause Updates
-- Resumes Windows updates and re-enables driver updates.
-> [!TIP]
-> To resume updates but keep driver updates disabled, use `Resume updates` in Windows Update settings instead.
+- Resumes Windows updates.
 
 
 
