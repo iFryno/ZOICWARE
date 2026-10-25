@@ -8,187 +8,465 @@ If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
 $Global:tempDir = (([System.IO.Path]::GetTempPath())).trimend('\')
 
 function Download-AppxPackage {
+    [CmdletBinding()]
     param(
-        # there has to be an alternative, as sometimes the API fails on PackageFamilyName
-        [string]$PackageFamilyName,
-        [string]$ProductId,
-        [string]$outputDir
+        [Parameter(Mandatory, Position = 0)]
+        [Alias('ProductId', 'Url', 'PackageFamilyName', 'CategoryId')]
+        [string]$Id,
+        [ValidateSet('Auto', 'Url', 'ProductId', 'PackageFamilyName', 'CategoryId')]
+        [string]$IdType = 'Auto',
+        [string]$Lang = 'en',
+        [string]$Market = 'US',
+        [ValidateSet('Retail', 'RP', 'Fast', 'Slow')]
+        [string]$Ring = 'Retail',
+        [ValidateSet('All', 'x86', 'x64', 'arm', 'arm64', 'neutral')]
+        [string]$Architecture = 'All',
+        [switch]$Download,
+        [string]$OutputPath = (Join-Path (Get-Location) 'StoreDownloads'),
+        [switch]$Raw
     )
-    if (-Not ($PackageFamilyName -Or $ProductId)) {
-        # can't do anything without at least one
-        Write-Error 'Missing either PackageFamilyName or ProductId.'
+    $ErrorActionPreference = 'Stop'
+    $Fe3Base = 'https://fe3cr.delivery.mp.microsoft.com/ClientWebService/client.asmx'
+    $Fe3Secured = "$Fe3Base/secured"
+    $WuNs = 'http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService'
+    $BaselineNonLeafIds = @(
+        1, 2, 3, 10, 11, 17, 19, 2359974, 2359977, 5143990, 5169043, 5169044, 5169047,
+        8788830, 8806526, 9125350, 9154769, 10809856, 23110993, 23110994, 23110995,
+        23110996, 23110999, 23111000, 23111001, 23111002, 23111003, 23111004,
+        24513870, 28880263, 30077688, 30486944, 59830006, 59830007, 59830008,
+        60484010, 62450018, 62450019, 62450020, 98959022, 98959023, 98959024,
+        98959025, 98959026, 105939029, 105995585, 106017178, 107825194, 117765322,
+        129905029, 130040030, 130040031, 130040032, 130040033, 133399034, 138372035,
+        138372036, 139536037, 139536038, 139536039, 139536040, 142045136, 158941041,
+        158941042, 158941043, 158941044, 159776047, 160733048, 160733049, 160733050,
+        160733051, 160733055, 160733056, 161870057, 161870058, 161870059
+    )
+    $FlightEnabled = 0
+    if ($Ring -ne 'Retail') { $FlightEnabled = 1 }
+    $OsVersion = '10.0.22621.1'
+    $DeviceAttributes = "BranchReadinessLevel=CB;CurrentBranch=;OEMModel=Virtual Machine;FlightRing=$Ring;AttrDataVer=21;SystemManufacturer=Microsoft Corporation;InstallLanguage=$Lang-$Market;OSUILocale=$Lang-$Market;InstallationType=Client;FlightingBranchName=;FirmwareVersion=Hyper-V UEFI Release v2.5;SystemProductName=Virtual Machine;OSSkuId=48;FlightContent=Mainline;App=WU_STORE;OEMName_Uncleaned=Microsoft Corporation;AppVer=0.0.0.0;OSArchitecture=AMD64;SystemSKU=None;UpdateManagementGroup=2;IsFlightingEnabled=$FlightEnabled;IsDeviceRetailDemo=0;TelemetryLevel=3;OSVersion=$OsVersion;DeviceFamily=Windows.Desktop;"
+    function Write-RawDump {
+        param([string]$Name, [string]$Content)
+        if ($Raw) {
+            $path = Join-Path (Get-Location) "$Name.xml"
+            Set-Content -Path $path -Value $Content -Encoding UTF8
+            Write-Verbose "Dumped $Name -> $path"
+        }
+    }
+    function Invoke-Fe3Soap {
+        param([string]$Uri, [string]$Body, [string]$Name)
+   
+        try {
+            $resp = Invoke-WebRequest -Uri $Uri -Method Post -ContentType 'application/soap+xml; charset=utf-8' -Body $Body -UseBasicParsing
+            Write-RawDump -Name $Name -Content $resp.Content
+            return $resp.Content
+        }
+        catch {
+            $errBody = $null
+            if ($_.Exception.Response) {
+                try {
+                    $stream = $_.Exception.Response.GetResponseStream()
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $errBody = $reader.ReadToEnd()
+                }
+                catch {}
+            }
+            if ($errBody) { Write-RawDump -Name "$Name-fault" -Content $errBody }
+            $msg = "SOAP call '$Name' failed: $($_.Exception.Message)"
+            if ($errBody) { $msg += "`n$errBody" }
+            throw $msg
+        }
+    }
+    function Get-XmlValue {
+        param([string]$Text, [string]$Tag)
+        $m = [regex]::Match($Text, "<$Tag>([^<]*)</$Tag>")
+        if ($m.Success) { return [System.Net.WebUtility]::HtmlDecode($m.Groups[1].Value) }
         return $null
     }
-                  
-    try {
-        $UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome # needed as sometimes the API will block things when it knows requests are coming from PowerShell
+    function Get-XmlBlock {
+        param([string]$Text, [string]$Tag)
+        $m = [regex]::Match($Text, "<$Tag>([\s\S]*?)</$Tag>")
+        if ($m.Success) { return $m.Groups[1].Value }
+        return $null
     }
-    catch {
-        $UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-    }
-                  
-    $DownloadedFiles = @()
-    $errored = $false
-    $allFilesDownloaded = $true
-                  
-    $apiUrl = 'https://store.rg-adguard.net/api/GetFiles'
-    $versionRing = 'Retail'
-                  
-    $architecture = switch ($env:PROCESSOR_ARCHITECTURE) {
-        'x86' { 'x86' }
-        { @('x64', 'amd64') -contains $_ } { 'x64' }
-        'arm' { 'arm' }
-        'arm64' { 'arm64' }
-        default { 'neutral' } # should never get here
-    }
-                  
-    if (Test-Path $outputDir -PathType Container) {
-        New-Item -Path "$outputDir\$PackageFamilyName" -ItemType Directory -Force | Out-Null
-        $downloadFolder = "$outputDir\$PackageFamilyName"
-    }
-    else {
-        $downloadFolder = Join-Path $tempDir $PackageFamilyName
-        if (!(Test-Path $downloadFolder -PathType Container)) {
-            New-Item $downloadFolder -ItemType Directory -Force | Out-Null
+    function ConvertTo-HexDigest {
+        param([string]$Base64Digest)
+        if (-not $Base64Digest) { return $null }
+        try {
+            $bytes = [Convert]::FromBase64String($Base64Digest)
+            return ([BitConverter]::ToString($bytes) -replace '-', '').ToLower()
+        }
+        catch {
+            return $Base64Digest
         }
     }
-                    
-    $body = @{
-        type = if ($ProductId) { 'ProductId' } else { 'PackageFamilyName' }
-        url  = if ($ProductId) { $ProductId } else { $PackageFamilyName }
-        ring = $versionRing
-        lang = 'en-US'
+    function Format-FileSize {
+        param([long]$Bytes)
+        if ($Bytes -ge 1MB) { return '{0:N2} MB' -f ($Bytes / 1MB) }
+        if ($Bytes -ge 1KB) { return '{0:N2} KB' -f ($Bytes / 1KB) }
+        return "$Bytes B"
     }
-
-    $headers = @{
-        'User-Agent'       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        'Accept'           = 'application/json, text/javascript, */*; q=0.01'
-        'Content-Type'     = 'application/x-www-form-urlencoded; charset=UTF-8'
-        'X-Requested-With' = 'XMLHttpRequest'
-        'Origin'           = 'https://store.rg-adguard.net'
-        'Referer'          = 'https://store.rg-adguard.net/'
-    }
-      
-                  
-    # required due to the api being protected behind Cloudflare now
-    if (-Not $apiWebSession) {
-        $global:apiWebSession = $null
-        $apiHostname = (($apiUrl.split('/'))[0..2]) -Join '/'
-        Invoke-WebRequest -Uri $apiHostname -UserAgent $UserAgent -SessionVariable $apiWebSession -UseBasicParsing
-    }
-                  
-    $raw = $null
-    try {
-        $raw = Invoke-RestMethod -Method Post -Uri $apiUrl -Headers $headers -Body $body -WebSession $apiWebSession
-    }
-    catch {
-        $errorMsg = 'An error occurred: ' + $_
-        Write-Host $errorMsg
-        $errored = $true
-        return $false
-    }
-                  
-    # hashtable of packages by $name
-    #  > values = hashtables of packages by $version
-    #    > values = arrays of packages as objects (containing: url, filename, name, version, arch, publisherId, type)
-    [Collections.Generic.Dictionary[string, Collections.Generic.Dictionary[string, array]]] $packageList = @{}
-    # populate $packageList
-    $patternUrlAndText = '<tr style.*<a href=\"(?<url>.*)"\s.*>(?<text>.*\.(app|msi)x.*)<\/a>'
-    $raw | Select-String $patternUrlAndText -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object {
-        $url = ($_.Groups['url']).Value
-        $text = ($_.Groups['text']).Value
-        $textSplitUnderscore = $text.split('_')
-        $name = $textSplitUnderscore.split('_')[0]
-        $version = $textSplitUnderscore.split('_')[1]
-        $arch = ($textSplitUnderscore.split('_')[2]).ToLower()
-        $publisherId = ($textSplitUnderscore.split('_')[4]).split('.')[0]
-        $textSplitPeriod = $text.split('.')
-        $type = ($textSplitPeriod[$textSplitPeriod.length - 1]).ToLower()
-                  
-        # create $name hash key hashtable, if it doesn't already exist
-        if (!($packageList.keys -match ('^' + [Regex]::escape($name) + '$'))) {
-            $packageList["$name"] = @{}
+    function Get-UrlExpiry {
+        param([string]$Url)
+        $m = [regex]::Match($Url, '[?&]P1=(\d+)')
+        if ($m.Success) {
+            $epoch = [long]$m.Groups[1].Value
+            return [DateTimeOffset]::FromUnixTimeSeconds($epoch).UtcDateTime.ToString('yyyy-MM-dd HH:mm:ss') + ' GMT'
         }
-        # create $version hash key array, if it doesn't already exist
-        if (!(($packageList["$name"]).keys -match ('^' + [Regex]::escape($version) + '$'))) {
-            ($packageList["$name"])["$version"] = @()
-        }
-                   
-        # add package to the array in the hashtable
-        ($packageList["$name"])["$version"] += @{
-            url         = $url
-            filename    = $text
-            name        = $name
-            version     = $version
-            arch        = $arch
-            publisherId = $publisherId
-            type        = $type
-        }
+        return '1970-01-01 00:00:00 GMT'
     }
-                  
-    # an array of packages as objects, meant to only contain one of each $name
-    $latestPackages = @()
-    # grabs the most updated package for $name and puts it into $latestPackages
-    $packageList.GetEnumerator() | ForEach-Object { ($_.value).GetEnumerator() | Select-Object -Last 1 } | ForEach-Object {
-        $packagesByType = $_.value
-        $msixbundle = ($packagesByType | Where-Object { $_.type -match '^msixbundle$' })
-        $appxbundle = ($packagesByType | Where-Object { $_.type -match '^appxbundle$' })
-        $msix = ($packagesByType | Where-Object { ($_.type -match '^msix$') -And ($_.arch -match ('^' + [Regex]::Escape($architecture) + '$')) })
-        $appx = ($packagesByType | Where-Object { ($_.type -match '^appx$') -And ($_.arch -match ('^' + [Regex]::Escape($architecture) + '$')) })
-        if ($msixbundle) { $latestPackages += $msixbundle }
-        elseif ($appxbundle) { $latestPackages += $appxbundle }
-        elseif ($msix) { $latestPackages += $msix }
-        elseif ($appx) { $latestPackages += $appx }
+    function Resolve-ProductIdFromUrl {
+        param([string]$Url)
+        $m = [regex]::Match($Url, '\b([0-9A-Za-z]{12})\b(?:[/?#]|$)')
+        if (-not $m.Success) {
+            throw "Couldn't find a 12-character Product ID in URL '$Url'."
+        }
+        return $m.Groups[1].Value.ToUpper()
     }
-                  
-    # download packages
-    $latestPackages | ForEach-Object {
-        $url = $_.url
-        $filename = $_.filename
-        # TODO: may need to include detection in the future of expired package download URLs..... in the case that downloads take over 10 minutes to complete
-                  
-        $downloadFile = Join-Path $downloadFolder $filename
-                  
-        # If file already exists, ask to replace it
-        if (Test-Path $downloadFile) {
-            Write-Host "`"${filename}`" already exists at `"${downloadFile}`"."
-            $confirmation = ''
-            while (!(($confirmation -eq 'Y') -Or ($confirmation -eq 'N'))) {
-                $confirmation = Read-Host "`nWould you like to re-download and overwrite the file at `"${downloadFile}`" (Y/N)?"
-                $confirmation = $confirmation.ToUpper()
+    function Resolve-WuCategoryId {
+        param(
+            [string]$Value,
+            [string]$Type,
+            [string]$Market,
+            [string]$Lang
+        )
+        $resolvedType = $Type
+        if ($resolvedType -eq 'Auto') {
+            if ($Value -match '^https?://') {
+                $resolvedType = 'Url'
             }
-            if ($confirmation -eq 'Y') {
-                Remove-Item -Path $downloadFile -Force
+            elseif ($Value -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+                $resolvedType = 'CategoryId'
+            }
+            elseif ($Value -match '_[0-9a-z]{13}$') {
+                $resolvedType = 'PackageFamilyName'
             }
             else {
-                $DownloadedFiles += $downloadFile
+                $resolvedType = 'ProductId'
             }
         }
-                  
-        if (!(Test-Path $downloadFile)) {
-            Write-Host "Attempting download of `"${filename}`" to `"${downloadFile}`" . . ."
-            $fileDownloaded = $null
-            $PreviousProgressPreference = $ProgressPreference
-            $ProgressPreference = 'SilentlyContinue' # avoids slow download when using Invoke-WebRequest
-            try {
-                Invoke-WebRequest -Uri $url -OutFile $downloadFile
-                $fileDownloaded = $?
+        Write-Verbose "Resolved input type: $resolvedType"
+        if ($resolvedType -eq 'Url') {
+            $productId = Resolve-ProductIdFromUrl -Url $Value
+            return Resolve-WuCategoryId -Value $productId -Type 'ProductId' -Market $Market -Lang $Lang
+        }
+        if ($resolvedType -eq 'CategoryId') {
+            return [PSCustomObject]@{ WuCategoryId = $Value; PackageIdentityName = $null }
+        }
+        if ($resolvedType -eq 'PackageFamilyName') {
+            $lookupUrl = "https://displaycatalog.mp.microsoft.com/v7.0/products/lookup?value=$Value&market=$Market&languages=$Lang-$Market,$Lang&alternateId=PackageFamilyName&fieldsTemplate=Details"
+            $lookup = Invoke-RestMethod -Uri $lookupUrl -Method Get
+            if (-not $lookup.Products -or $lookup.Products.Count -eq 0) {
+                throw "No product found for PackageFamilyName '$Value'."
             }
-            catch {
-                $ProgressPreference = $PreviousProgressPreference # return ProgressPreference back to normal
-                $errorMsg = 'An error occurred: ' + $_
-                Write-Host $errorMsg
-                $errored = $true
-                break $false
-            }
-            $ProgressPreference = $PreviousProgressPreference # return ProgressPreference back to normal
-            if ($fileDownloaded) { $DownloadedFiles += $downloadFile }
-            else { $allFilesDownloaded = $false }
+            $productId = $lookup.Products[0].ProductId
+            Write-Verbose "PackageFamilyName '$Value' -> ProductId '$productId'"
+            return Resolve-WuCategoryId -Value $productId -Type 'ProductId' -Market $Market -Lang $Lang
+        }
+        $dcatUrl = "https://displaycatalog.mp.microsoft.com/v7.0/products/$Value`?market=$Market&languages=$Lang-$Market,$Lang&fieldsTemplate=Details"
+        $dcat = Invoke-RestMethod -Uri $dcatUrl -Method Get
+        if (-not $dcat.Product) {
+            throw "DisplayCatalog returned no product for '$Value'. Check the ProductId."
+        }
+        $sku = $dcat.Product.DisplaySkuAvailabilities[0].Sku
+        $categoryId = $sku.Properties.FulfillmentData.WuCategoryId
+        if (-not $categoryId) {
+            throw "No WuCategoryId found for '$Value' - this product may not ship as an MSIX/Appx package."
+        }
+        return [PSCustomObject]@{
+            WuCategoryId        = $categoryId
+            PackageIdentityName = $dcat.Product.Properties.PackageIdentityName
         }
     }
-    if ($errored) { Write-Host 'Completed with some errors.' }
-    if (-Not $allFilesDownloaded) { Write-Host 'Warning: Not all packages could be downloaded.' }
-    return $DownloadedFiles
+    #Write-Host '[1/4] Resolving WuCategoryId...' -ForegroundColor Cyan
+    $resolved = Resolve-WuCategoryId -Value $Id -Type $IdType -Market $Market -Lang $Lang
+    $wuCategoryId = $resolved.WuCategoryId
+    #Write-Host "      WuCategoryId = $wuCategoryId" -ForegroundColor DarkGray
+    #Write-Host '[2/4] Requesting anonymous FE3 cookie...' -ForegroundColor Cyan
+    $now = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+    $getCookieBody = @"
+<Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2003/05/soap-envelope">
+  <Header>
+    <Action d3p1:mustUnderstand="1" xmlns:d3p1="http://www.w3.org/2003/05/soap-envelope" xmlns="http://www.w3.org/2005/08/addressing">http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService/GetCookie</Action>
+    <MessageID xmlns="http://www.w3.org/2005/08/addressing">urn:uuid:$([guid]::NewGuid())</MessageID>
+    <To d3p1:mustUnderstand="1" xmlns:d3p1="http://www.w3.org/2003/05/soap-envelope" xmlns="http://www.w3.org/2005/08/addressing">https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx</To>
+    <Security d3p1:mustUnderstand="1" xmlns:d3p1="http://www.w3.org/2003/05/soap-envelope" xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+      <Timestamp xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+        <Created>$now</Created>
+        <Expires>2044-08-02T20:09:03Z</Expires>
+      </Timestamp>
+      <WindowsUpdateTicketsToken d4p1:id="ClientMSA" xmlns:d4p1="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns="http://schemas.microsoft.com/msus/2014/10/WindowsUpdateAuthorization"></WindowsUpdateTicketsToken>
+    </Security>
+  </Header>
+  <Body>
+    <GetCookie xmlns="$WuNs">
+      <oldCookie>
+        <Expiration>2016-07-27T07:18:09Z</Expiration>
+      </oldCookie>
+      <lastChange>2015-10-21T17:01:07.1472913Z</lastChange>
+      <currentTime>$now</currentTime>
+      <protocolVersion>2.50</protocolVersion>
+    </GetCookie>
+  </Body>
+</Envelope>
+"@
+    $cookieResp = Invoke-Fe3Soap -Uri $Fe3Base -Body $getCookieBody -Name 'GetCookie'
+    $cookieData = Get-XmlValue -Text $cookieResp -Tag 'EncryptedData'
+    $cookieExp = Get-XmlValue -Text $cookieResp -Tag 'Expiration'
+    if (-not $cookieData) { throw 'Failed to obtain FE3 cookie. Run with -Raw to inspect the response.' }
+    #Write-Host '[3/4] Syncing update metadata for category...' -ForegroundColor Cyan
+    $installedNonLeaf = ($BaselineNonLeafIds | ForEach-Object { "<int>$_</int>" }) -join "`n"
+    $syncBody = @"
+<s:Envelope xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+  <s:Header>
+    <a:Action s:mustUnderstand="1">http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService/SyncUpdates</a:Action>
+    <a:MessageID>urn:uuid:$([guid]::NewGuid())</a:MessageID>
+    <a:To s:mustUnderstand="1">https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx</a:To>
+    <o:Security s:mustUnderstand="1" xmlns:o="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+      <Timestamp xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+        <Created>$now</Created>
+        <Expires>2044-08-02T20:09:03Z</Expires>
+      </Timestamp>
+      <wuws:WindowsUpdateTicketsToken wsu:id="ClientMSA" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wuws="http://schemas.microsoft.com/msus/2014/10/WindowsUpdateAuthorization"></wuws:WindowsUpdateTicketsToken>
+    </o:Security>
+  </s:Header>
+  <s:Body>
+    <SyncUpdates xmlns="$WuNs">
+      <cookie>
+        <Expiration>$cookieExp</Expiration>
+        <EncryptedData>$cookieData</EncryptedData>
+      </cookie>
+      <parameters>
+        <ExpressQuery>false</ExpressQuery>
+        <InstalledNonLeafUpdateIDs>
+          $installedNonLeaf
+        </InstalledNonLeafUpdateIDs>
+        <OtherCachedUpdateIDs></OtherCachedUpdateIDs>
+        <SkipSoftwareSync>false</SkipSoftwareSync>
+        <NeedTwoGroupOutOfScopeUpdates>true</NeedTwoGroupOutOfScopeUpdates>
+        <FilterAppCategoryIds>
+          <CategoryIdentifier>
+            <Id>$wuCategoryId</Id>
+          </CategoryIdentifier>
+        </FilterAppCategoryIds>
+        <TreatAppCategoryIdsAsInstalled>true</TreatAppCategoryIdsAsInstalled>
+        <AlsoPerformRegularSync>false</AlsoPerformRegularSync>
+        <ComputerSpec />
+        <ExtendedUpdateInfoParameters>
+          <XmlUpdateFragmentTypes>
+            <XmlUpdateFragmentType>Extended</XmlUpdateFragmentType>
+            <XmlUpdateFragmentType>Published</XmlUpdateFragmentType>
+            <XmlUpdateFragmentType>Core</XmlUpdateFragmentType>
+          </XmlUpdateFragmentTypes>
+          <Locales>
+            <string>$Lang-$Market</string>
+            <string>$Lang</string>
+          </Locales>
+        </ExtendedUpdateInfoParameters>
+        <ClientPreferredLanguages>
+          <string>$Lang-$Market</string>
+        </ClientPreferredLanguages>
+        <ProductsParameters>
+          <SyncCurrentVersionOnly>false</SyncCurrentVersionOnly>
+          <DeviceAttributes>$DeviceAttributes</DeviceAttributes>
+          <CallerAttributes>Interactive=1;IsSeeker=0;</CallerAttributes>
+          <Products />
+        </ProductsParameters>
+      </parameters>
+    </SyncUpdates>
+  </s:Body>
+</s:Envelope>
+"@
+    $syncResp = Invoke-Fe3Soap -Uri $Fe3Base -Body $syncBody -Name 'SyncUpdates'
+    $newCookieBlock = Get-XmlBlock -Text $syncResp -Tag 'NewCookie'
+    if ($newCookieBlock) {
+        $syncCookieData = Get-XmlValue -Text $newCookieBlock -Tag 'EncryptedData'
+        $syncCookieExp = Get-XmlValue -Text $newCookieBlock -Tag 'Expiration'
+        if ($syncCookieData) {
+            $cookieData = $syncCookieData
+            $cookieExp = $syncCookieExp
+        }
+    }
+    $newUpdatesBlock = Get-XmlBlock -Text $syncResp -Tag 'NewUpdates'
+    $extendedBlock = Get-XmlBlock -Text $syncResp -Tag 'ExtendedUpdateInfo'
+    if (-not $newUpdatesBlock -or -not $extendedBlock) {
+        Write-Warning "SyncUpdates returned no updates for this category/ring. Run with -Raw and check SyncUpdates.xml - Microsoft may have changed the request shape, or this app has no packages for Ring '$Ring'."
+        return
+    }
+    $coreById = @{}
+    foreach ($m in [regex]::Matches($newUpdatesBlock, '<UpdateInfo>([\s\S]*?)</UpdateInfo>')) {
+        $id = Get-XmlValue -Text $m.Groups[1].Value -Tag 'ID'
+        $xml = Get-XmlValue -Text $m.Groups[1].Value -Tag 'Xml'
+        if ($id) { $coreById[$id] = $xml }
+    }
+    $extById = @{}
+    $extUpdatesBlock = Get-XmlBlock -Text $extendedBlock -Tag 'Updates'
+    foreach ($m in [regex]::Matches($extUpdatesBlock, '<Update>([\s\S]*?)</Update>')) {
+        $id = Get-XmlValue -Text $m.Groups[1].Value -Tag 'ID'
+        $xml = Get-XmlValue -Text $m.Groups[1].Value -Tag 'Xml'
+        if ($id) { $extById[$id] = $xml }
+    }
+    $packages = New-Object System.Collections.Generic.List[object]
+    foreach ($id in $extById.Keys) {
+        if (-not $coreById.ContainsKey($id)) { continue }
+        $extXml = $extById[$id]
+        $coreXml = $coreById[$id]
+        if ($extXml -notmatch '<Files' -or $coreXml -notmatch 'SecuredFragment') { continue }
+        try {
+            [xml]$combined = "<Xml>$extXml$coreXml</Xml>"
+        }
+        catch {
+            Write-Verbose "Skipping revision $id - couldn't parse combined fragment: $_"
+            continue
+        }
+        $identity = $combined.Xml.UpdateIdentity
+        if (-not $identity) { continue }
+        $updateId = $identity.UpdateID
+        $revisionNumber = $identity.RevisionNumber
+        $extProps = $combined.Xml.ExtendedProperties
+        $pkgIdentity = $extProps.PackageIdentityName
+        $files = @($combined.Xml.Files.File)
+        $revisionIdentifier = $pkgIdentity
+        foreach ($f in $files) {
+            if ($f -and $f.InstallerSpecificIdentifier) {
+                $revisionIdentifier = $f.InstallerSpecificIdentifier
+                break
+            }
+        }
+        $revisionArch = 'unknown'
+        $archMatch = [regex]::Match($revisionIdentifier, '_(x86|x64|arm64|arm|neutral)__')
+        if ($archMatch.Success) { $revisionArch = $archMatch.Groups[1].Value }
+        foreach ($file in $files) {
+            if (-not $file) { continue }
+            $origName = $file.FileName
+            $identifier = $file.InstallerSpecificIdentifier
+            $digest = $file.Digest
+            $digestAlgo = $file.DigestAlgorithm
+            [long]$sizeBytes = 0
+            if ($file.Size) { [void][long]::TryParse($file.Size, [ref]$sizeBytes) }
+            $isBlockMap = ($file.PatchingType -eq 'DynamicMetadata') -or ($origName -match '^Abm_')
+            if ($isBlockMap) {
+                $realName = "$revisionIdentifier.BlockMap"
+            }
+            elseif ($origName -match '\.cab$') {
+                continue
+            }
+            else {
+                $ext = [System.IO.Path]::GetExtension($origName)
+                $realName = $origName
+                if ($identifier) { $realName = "$identifier$ext" }
+            }
+            $packages.Add([PSCustomObject]@{
+                    FileName            = $realName
+                    UpdateID            = $updateId
+                    RevisionNumber      = $revisionNumber
+                    Digest              = $digest
+                    DigestAlgorithm     = $digestAlgo
+                    SizeBytes           = $sizeBytes
+                    PackageIdentityName = $pkgIdentity
+                    Architecture        = $revisionArch
+                })
+        }
+    }
+    if ($packages.Count -eq 0) {
+        Write-Warning 'No installable files found for this product/ring. Run with -Raw and inspect SyncUpdates.xml.'
+        return
+    }
+    if ($Architecture -ne 'All') {
+        $availableArch = ($packages.Architecture | Sort-Object -Unique) -join ', '
+        $filteredPackages = @($packages | Where-Object { $_.Architecture -eq $Architecture })
+        if ($filteredPackages.Count -eq 0) {
+            Write-Warning "No files found for architecture '$Architecture'. Available for this app/ring: $availableArch"
+            return
+        }
+        $packages = $filteredPackages
+        # Write-Host "      Filtered to architecture '$Architecture' ($($packages.Count) file(s)); available: $availableArch" -ForegroundColor DarkGray
+    }
+    else {
+        # Write-Host "      Found $($packages.Count) candidate file(s)." -ForegroundColor DarkGray
+    }
+    #Write-Host '[4/4] Resolving direct download URLs...' -ForegroundColor Cyan
+    $results = New-Object System.Collections.Generic.List[object]
+    $byRevision = $packages | Group-Object -Property UpdateID, RevisionNumber
+    foreach ($group in $byRevision) {
+        $first = $group.Group[0]
+        $infoBody = @"
+<s:Envelope xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+  <s:Header>
+    <a:Action s:mustUnderstand="1">http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService/GetExtendedUpdateInfo2</a:Action>
+    <a:MessageID>urn:uuid:$([guid]::NewGuid())</a:MessageID>
+    <a:To s:mustUnderstand="1">https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx/secured</a:To>
+    <o:Security s:mustUnderstand="1" xmlns:o="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+      <Timestamp xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+        <Created>$now</Created>
+        <Expires>2044-08-02T20:09:03Z</Expires>
+      </Timestamp>
+      <wuws:WindowsUpdateTicketsToken wsu:id="ClientMSA" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wuws="http://schemas.microsoft.com/msus/2014/10/WindowsUpdateAuthorization"></wuws:WindowsUpdateTicketsToken>
+    </o:Security>
+  </s:Header>
+  <s:Body>
+    <GetExtendedUpdateInfo2 xmlns="$WuNs">
+      <cookie>
+        <Expiration>$cookieExp</Expiration>
+        <EncryptedData>$cookieData</EncryptedData>
+      </cookie>
+      <updateIDs>
+        <UpdateIdentity>
+          <UpdateID>$($first.UpdateID)</UpdateID>
+          <RevisionNumber>$($first.RevisionNumber)</RevisionNumber>
+        </UpdateIdentity>
+      </updateIDs>
+      <infoTypes>
+        <XmlUpdateFragmentType>FileUrl</XmlUpdateFragmentType>
+        <XmlUpdateFragmentType>FileDecryption</XmlUpdateFragmentType>
+      </infoTypes>
+      <deviceAttributes>$DeviceAttributes</deviceAttributes>
+    </GetExtendedUpdateInfo2>
+  </s:Body>
+</s:Envelope>
+"@
+        $infoResp = Invoke-Fe3Soap -Uri $Fe3Secured -Body $infoBody -Name "GetExtendedUpdateInfo2-$($first.UpdateID)"
+        $fileLocations = [regex]::Matches($infoResp, '<FileLocation>([\s\S]*?)</FileLocation>')
+        foreach ($pkg in $group.Group) {
+            $url = $null
+            foreach ($locMatch in $fileLocations) {
+                $digest = Get-XmlValue -Text $locMatch.Groups[1].Value -Tag 'FileDigest'
+                if ($digest -eq $pkg.Digest) {
+                    $url = Get-XmlValue -Text $locMatch.Groups[1].Value -Tag 'Url'
+                    break
+                }
+            }
+            if ($url) {
+                $results.Add([PSCustomObject]@{
+                        FileName     = $pkg.FileName
+                        Architecture = $pkg.Architecture
+                        Expire       = Get-UrlExpiry -Url $url
+                        SHA1         = ConvertTo-HexDigest -Base64Digest $pkg.Digest
+                        Size         = Format-FileSize -Bytes $pkg.SizeBytes
+                        Url          = $url
+                    })
+            }
+            else {
+                Write-Verbose "No URL resolved for $($pkg.FileName) (digest mismatch or not in FileLocations)."
+            }
+        }
+    }
+    if ($results.Count -eq 0) {
+        Write-Warning 'Resolved 0 direct URLs. Run with -Raw and inspect GetExtendedUpdateInfo2-*.xml.'
+        return
+    }
+    if ($Download) {
+        if (-not (Test-Path $OutputPath)) {
+            New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
+        }
+        foreach ($item in $results) {
+            $dest = Join-Path $OutputPath $item.FileName
+            #Write-Host "Downloading $($item.FileName)..." -ForegroundColor Yellow
+            Invoke-WebRequest -Uri $item.Url -OutFile $dest
+        }
+        #Write-Host "Done. Files saved to $OutputPath" -ForegroundColor Green
+    }
+    return $results
 }
 
 function Create-Nip {
@@ -1017,9 +1295,10 @@ if (!(Check-Internet)) {
         if (!$appx) {
             Write-Status -message 'NVCP Not Found... Installing' -type output
             Remove-Item "$tempDir\NVIDIACorp.NVIDIAControlPanel*" -Force -Recurse -ErrorAction SilentlyContinue
-            $downloadedFiles = Download-AppxPackage -PackageFamilyName 'NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj' -outputDir "$tempDir" 
-            $package = $downloadedFiles | Where-Object { $_ -match '\.appx$' } | Select-Object -First 1
-            if ($package) {
+            $result = Download-AppxPackage 'NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj' -IdType PackageFamilyName | Where-Object { $_.Filename -like '*.appx' } | Select-Object -Last 1
+            $package = "$tempDir\NVIDIACorp.NVIDIAControlPanel.appx" 
+            Get-FileFromWeb -URL $result.Url -File $package
+            if (Test-Path $package) {
                 try {
                     Add-AppPackage $package -ErrorAction Stop
                 }
