@@ -7,18 +7,12 @@
 
 Zoicware is a PowerShell script designed to customize and tweak Windows 11. It allows you to choose how you want to configure your Windows installation for productivity and gaming. Zoicware gives you complete control over the tweaks applied to your system and automatically saves your choices to a config file for future use.
 
-Want to set up Windows like me? Use the pre-made configs [here](https://github.com/zoicware/ZoicwareConfigs).
+Want to set up Windows like me? Use the pre-made configs [here](https://github.com/iFryno/ZoicwareConfigs).
 
 ---
 
 ## How to Use
 
-**Quick Download** 
-
-```powershell
-curl.exe -L "https://github.com/zoicware/ZOICWARE/releases/latest/download/zoicwareOS.zip" -o C:\zoicwareOS.zip
-```
----
 1. Simply click on [releases](https://github.com/zoicware/ZOICWARE/releases) and download `zoicwareOS.zip`.
 2. Extract the folder to your C drive and run `RUN ZOICWARE.exe`.
 3. Choose your desired options. Once complete, you can save these choices to a config file for future use.
@@ -31,7 +25,7 @@ curl.exe -L "https://github.com/zoicware/ZOICWARE/releases/latest/download/zoicw
 ---
 
 ## View Code
-#### [Functions](https://github.com/zoicware/ZOICWARE/tree/main/src)
+#### [Functions](https://github.com/iFryno/ZOICWARE/tree/main/src)
 
 ---
 
