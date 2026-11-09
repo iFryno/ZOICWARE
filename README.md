@@ -13,7 +13,7 @@ Want to set up Windows like me? Use the pre-made configs [here](https://github.c
 
 ## How to Use
 
-1. Simply click on [releases](https://github.com/zoicware/ZOICWARE/releases) and download `zoicwareOS.zip`.
+1. Simply click on [releases](https://github.com/iFryno/ZOICWARE/releases) and download `zoicwareOS.zip`.
 2. Extract the folder to your C drive and run `RUN ZOICWARE.exe`.
 3. Choose your desired options. Once complete, you can save these choices to a config file for future use.
 
