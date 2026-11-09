@@ -13,7 +13,7 @@ Want to set up Windows like me? Use the pre-made configs [here](https://github.c
 
 ## How to Use
 
-1. Join the Discord Server (link below) and check the pins in #general for the temporary download link and download `zoicwareOS.zip`.
+1. Join the [Discord Server](https://discord.gg/VsC7XS5vgA) and check the pins in #general for the temporary download link and download `zoicwareOS.zip`.
 2. Extract the folder to your C drive and run `RUN ZOICWARE.exe`.
 3. Choose your desired options. Once complete, you can save these choices to a config file for future use.
 
